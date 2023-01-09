@@ -5,19 +5,18 @@ use serenity::{
         EventHandler as SEventHandler
     },
     model::{
-        application::command::{
-            Command,
-            CommandType,
-            CommandOptionType
+        application::{
+            command::Command,
+            interaction::Interaction
         },
         id::ChannelId,
-        gateway::Ready,
-        guild::Integration
+        gateway::Ready
     },
     async_trait
 };
-use crate::HandlerFromEnv;
-use tracing::{error, event, info, info_span};
+use serenity::builder::CreateInteractionResponse;
+use crate::{HandlerFromEnv, commands};
+use tracing::{error, info};
 
 #[derive(Debug)]
 pub struct EventHandler {
@@ -51,23 +50,7 @@ impl SEventHandler for EventHandler {
 
         let res = Command::set_global_application_commands(&ctx.http, | builder |
             builder
-                .create_application_command(| command |
-                    command
-                        .name("run")
-                        .description("Run code")
-                        .create_option(| op |
-                            op
-                                .name("lang")
-                                .description("Language")
-                                .kind(CommandOptionType::String)
-                        )
-                        .create_option(| op |
-                            op
-                                .name("code")
-                                .description("Code")
-                                .kind(CommandOptionType::String)
-                        )
-                )
+                .create_application_command(| command | commands::run::setup_command(command))
         ).await;
 
         match res {
@@ -76,7 +59,19 @@ impl SEventHandler for EventHandler {
         }
     }
 
-    async fn integration_create(&self, _ctx: Context, _integration: Integration) {
-        info!("Interaction!");
+    async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
+        info!("Interaction received!: {}", interaction.token());
+
+        if let Interaction::ApplicationCommand(int) = interaction {
+            let resp = match int.data.name.as_str() {
+                "run" => commands::run::command(&ctx, &int).await,
+                _ => CreateInteractionResponse::default()
+            };
+
+            match int.create_interaction_response(&ctx.http, | f | {let _ = mem::replace(f, resp); f}).await {
+                Ok(_) => info!("Interaction response sended: {}", int.token),
+                Err(err) => error!("Failed to send response to interaction {}: {err:?}", int.token)
+            }
+        }
     }
 }
