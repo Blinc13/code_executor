@@ -1,0 +1,21 @@
+[package]
+name = "compile_bot"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies.serenity]
+version = "0.11.5"
+features = ["http", "client", "builder", "cache"]
+
+[dependencies.tokio]
+version = "1.24.1"
+features = ["fs", "process", "rt", "time", "rt-multi-thread"]
+
+[dependencies.tracing]
+version = "0.1.37"
+features = ["log", "attributes"]
+
+[dependencies]
+sys-info = "0.9.1"
+tracing-subscriber = "0.3.16"
