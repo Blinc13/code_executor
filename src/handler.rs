@@ -1,4 +1,5 @@
 use std::mem;
+use std::sync::Arc;
 use serenity::{
     client::{
         Context,
@@ -63,8 +64,10 @@ impl SEventHandler for EventHandler {
         info!("Interaction received!: {}", interaction.token());
 
         if let Interaction::ApplicationCommand(int) = interaction {
+            let ctx = Arc::new(ctx);
+
             let resp = match int.data.name.as_str() {
-                "run" => commands::run::command(&ctx, &int).await,
+                "run" => commands::run::command(ctx.clone(), &int).await,
                 _ => CreateInteractionResponse::default()
             };
 
