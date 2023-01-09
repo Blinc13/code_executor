@@ -14,7 +14,8 @@ strip = true
 
 [dependencies.serenity]
 version = "0.11.5"
-features = ["http", "client", "builder", "cache"]
+default-features = false
+features = ["http", "client", "model", "builder", "cache", "rustls_backend", "gateway"]
 
 [dependencies.tokio]
 version = "1.24.1"

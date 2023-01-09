@@ -2,7 +2,10 @@ use serenity::{
     client,
     prelude::GatewayIntents
 };
-use compile_bot::EventHandler;
+use compile_bot::{
+    EventHandler,
+    HandlerFromEnv
+};
 use tracing_subscriber::FmtSubscriber;
 
 #[tokio::main]
