@@ -1,10 +1,18 @@
-use std::{str::FromStr, path::{PathBuf, Path}, process::Stdio};
+use std::{
+    str::FromStr,
+    process::Stdio,
+    path::{PathBuf, Path}
+};
 use tokio::{
     fs,
-    process::Command
+    time::Duration,
+    process::Command,
+    io::AsyncWriteExt
 };
 use serenity::model::id::{ChannelId, UserId};
-use tokio::io::AsyncWriteExt;
+use tracing::info;
+
+mod utils;
 
 #[derive(Copy, Clone, Debug)]
 pub enum Language {
@@ -19,7 +27,8 @@ pub enum Error {
     ExecError,
     InvokeError,
     FsError,
-    Unsupported
+    Unsupported,
+    TimeOut
 }
 
 struct Id {
@@ -47,7 +56,7 @@ impl Executor {
         }
     }
 
-    pub async fn compile_and_run(self) -> Result<(String, String), (Option<String>, Error)> {
+    pub async fn compile_and_run(self, timeout: Duration) -> Result<(String, String), (Option<String>, Error)> {
         let code_path = PathBuf::from(Self::form_file_name(self.id.channel, self.id.user, self.lang.as_str()));
         let exec_path = PathBuf::from(Self::form_file_name(self.id.channel, self.id.user, "o"));
 
@@ -71,7 +80,7 @@ impl Executor {
                 }.await;
 
                 match compile_result {
-                    Ok(compile_output) => match Self::_run_exec(&exec_path).await {
+                    Ok(compile_output) => match Self::_run_exec(&exec_path, timeout).await {
                         Ok(exec_output) => Ok((compile_output, exec_output)),
                         Err(err) => Err((Some(compile_output), err))
                     },
@@ -82,18 +91,18 @@ impl Executor {
         };
 
         // TODO: Rewrite
-        fs::remove_file(&code_path).await.unwrap();
-        fs::remove_file(&exec_path).await.unwrap();
+        let _ = fs::remove_file(&code_path).await;
+        let _ = fs::remove_file(&exec_path).await;
 
         info!("Cache files deleted");
 
         output
     }
 
-    async fn _run_exec(path: &Path) -> Result<String, Error> {
+    async fn _run_exec(path: &Path, timeout: Duration) -> Result<String, Error> {
         let child = unsafe {
             Command::new(&path.display().to_string())
-                .pre_exec(setup_process_env_for_exec)
+                .pre_exec(utils::setup_process_env_for_exec)
                 .kill_on_drop(true)
                 .stderr(Stdio::null())
                 .stdin(Stdio::null())
@@ -102,9 +111,14 @@ impl Executor {
         };
 
         match child {
-            Ok(child) => match child.wait_with_output().await {
-                Ok(out) => Ok(String::from_utf8(out.stdout).unwrap()),
-                Err(_) => Err(Error::ExecError)
+            Ok(child) => tokio::select! {
+                output = child.wait_with_output() => {
+                    match output {
+                        Ok(output) => Ok(String::from_utf8(output.stdout).unwrap()),
+                        Err(_) => Err(Error::ExecError)
+                    }
+                },
+                _ = tokio::time::sleep(timeout) => Err(Error::TimeOut)
             },
             Err(_) => Err(Error::BuildError)
         }
@@ -154,51 +168,4 @@ impl FromStr for Language {
             _ => Err(())
         }
     }
-}
-
-use libc::{rlimit, nice};
-use tracing::info;
-
-fn setup_process_env_for_exec() -> std::io::Result<()> {
-    let rlim_as = rlimit {
-        rlim_cur: 10485760,
-        rlim_max: 10485760
-    };
-    let rlim_core = rlimit {
-        rlim_cur: 0,
-        rlim_max: 0
-    };
-    let data_seg = rlimit {
-        rlim_cur: 5242880,
-        rlim_max: 5242880
-    };
-    let max_file_size = rlimit {
-        rlim_cur: 0,
-        rlim_max: 0
-    };
-    let nproc = rlimit {
-        rlim_cur: 2,
-        rlim_max: 2
-    };
-    let stack = rlimit {
-        rlim_cur: 2097152,
-        rlim_max: 2097152
-    };
-
-    unsafe {
-        libc::setrlimit(libc::RLIMIT_AS, &rlim_as);
-        libc::setrlimit(libc::RLIMIT_CORE, &rlim_core);
-        libc::setrlimit(libc::RLIMIT_DATA, &data_seg);
-        libc::setrlimit(libc::RLIMIT_FSIZE, &max_file_size);
-        libc::setrlimit(libc::RLIMIT_NPROC, &nproc);
-        libc::setrlimit(libc::RLIMIT_STACK, &stack);
-
-        libc::perror("setrlimit\0".as_ptr() as *const libc::c_char);
-
-        nice(15.into());
-
-        libc::perror("nice\0".as_ptr() as *const libc::c_char);
-    }
-
-    Ok(())
 }

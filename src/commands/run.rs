@@ -29,7 +29,7 @@ pub async fn command(ctx: Arc<Context>, int: &ApplicationCommandInteraction) -> 
     tokio::spawn(async move {
         let executor = Executor::new(lang, code, channel, user);
 
-        let _ = match executor.compile_and_run().await {
+        let _ = match executor.compile_and_run(tokio::time::Duration::from_secs(10)).await {
             Ok((compile_out, exec_out)) => {
                 info!("Code executed successful");
 
@@ -43,7 +43,8 @@ pub async fn command(ctx: Arc<Context>, int: &ApplicationCommandInteraction) -> 
                     Error::ExecError => channel.say(&ctx.http, format!("Execution error!\nCompile output:\n{}", compile_out.unwrap())),
                     Error::InvokeError => channel.say(&ctx.http, format!("Failed to call compiler!")),
                     Error::FsError => channel.say(&ctx.http, format!("File system error on server!")),
-                    Error::Unsupported => channel.say(&ctx.http, format!("Currently unsupported"))
+                    Error::Unsupported => channel.say(&ctx.http, format!("Currently unsupported")),
+                    Error::TimeOut => channel.say(&ctx.http, format!("Time out. Write normal code and try again"))
                 }
             }
         }.await;
