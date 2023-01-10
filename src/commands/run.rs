@@ -1,4 +1,3 @@
-use std::fs;
 use serenity::{
     client::Context,
     builder::{
@@ -13,7 +12,8 @@ use serenity::{
 };
 use std::str::FromStr;
 use std::sync::Arc;
-use crate::compiler_interface::{Compiler, Language};
+use tracing::info;
+use crate::executor::{Executor, Error, Language};
 use super::generate_options_map;
 
 pub async fn command(ctx: Arc<Context>, int: &ApplicationCommandInteraction) -> CreateInteractionResponse {
@@ -27,14 +27,26 @@ pub async fn command(ctx: Arc<Context>, int: &ApplicationCommandInteraction) -> 
     let (channel, user) = (int.channel_id, int.user.id);
 
     tokio::spawn(async move {
-        let compiler = Compiler::new(lang, code, channel, user);
-        let executable = compiler.compile().await.unwrap();
+        let executor = Executor::new(lang, code, channel, user);
 
-        println!("{}", executable.0.display());
+        let _ = match executor.compile_and_run().await {
+            Ok((compile_out, exec_out)) => {
+                info!("Code executed successful");
 
-        let exec_out = tokio::process::Command::new(executable.0).output().await;
+                channel.say(&ctx.http, format!("{}{}", compile_out, exec_out))
+            }
+            Err((compile_out, err)) => {
+                info!("Failed to run code: {err:?}");
 
-        channel.say(&ctx.http, format!("{}{}", String::from_utf8(executable.1).unwrap(), String::from_utf8(exec_out.unwrap().stdout).unwrap())).await;
+                match err {
+                    Error::BuildError => channel.say(&ctx.http, format!("Build error!\n{}", compile_out.unwrap())),
+                    Error::ExecError => channel.say(&ctx.http, format!("Execution error!\nCompile output:\n{}", compile_out.unwrap())),
+                    Error::InvokeError => channel.say(&ctx.http, format!("Failed to call compiler!")),
+                    Error::FsError => channel.say(&ctx.http, format!("File system error on server!")),
+                    Error::Unsupported => channel.say(&ctx.http, format!("Currently unsupported"))
+                }
+            }
+        }.await;
     });
 
 
