@@ -52,6 +52,7 @@ impl SEventHandler for EventHandler {
         let res = Command::set_global_application_commands(&ctx.http, | builder |
             builder
                 .create_application_command(| command | commands::run::setup_command(command))
+                .create_application_command(| command | commands::system_load::setup_command(command))
         ).await;
 
         match res {
@@ -66,8 +67,10 @@ impl SEventHandler for EventHandler {
         if let Interaction::ApplicationCommand(int) = interaction {
             let ctx = Arc::new(ctx);
 
+            // Maybe move await outside match?
             let resp = match int.data.name.as_str() {
                 "run" => commands::run::command(ctx.clone(), &int).await,
+                "system_load" => commands::system_load::command(ctx.clone(), &int).await,
                 _ => CreateInteractionResponse::default()
             };
 

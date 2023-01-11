@@ -84,7 +84,7 @@ pub fn setup_command(command: &mut CreateApplicationCommand) -> &mut CreateAppli
         .create_option(| op |
             op
                 .name("code")
-                .description("Code")
+                .description("Code to run")
                 .required(true)
                 .kind(CommandOptionType::String)
         )
