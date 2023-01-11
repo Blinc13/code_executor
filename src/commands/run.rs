@@ -19,15 +19,13 @@ use super::generate_options_map;
 pub async fn command(ctx: Arc<Context>, int: &ApplicationCommandInteraction) -> CreateInteractionResponse {
     let options = generate_options_map(&int.data.options);
 
-    let code = options.get("code").unwrap().unwrap().as_str().unwrap().to_owned();
-    let lang = Language::from_str(
-        options.get("lang").unwrap().unwrap().as_str().unwrap()
-    ).unwrap();
+    let code = options.get("code").unwrap().unwrap().as_str().expect("Failed to get code").to_owned();
+    let lang = Language::from_str(options.get("lang").unwrap().unwrap().as_str().unwrap()).expect("Failed to parse lang");
 
     let (channel, user) = (int.channel_id, int.user.id);
 
     tokio::spawn(async move {
-        let executor = Executor::new(lang, code, channel, user);
+        let executor = Executor::new(lang, code, ".".parse().unwrap(), channel, user);
 
         let _ = match executor.compile_and_run(tokio::time::Duration::from_secs(10)).await {
             Ok((compile_out, exec_out)) => {
@@ -81,6 +79,7 @@ pub fn setup_command(command: &mut CreateApplicationCommand) -> &mut CreateAppli
                 .kind(CommandOptionType::String)
                 .add_string_choice("Rust", "rust")
                 .add_string_choice("C++", "cpp")
+                .add_string_choice("C", "c")
         )
         .create_option(| op |
             op

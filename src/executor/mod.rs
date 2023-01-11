@@ -39,16 +39,18 @@ struct Id {
 pub struct Executor {
     code: String,
     lang: Language,
+    temp_dir: PathBuf,
     id: Id
 }
 
 
 // TODO: Move some code to modules
 impl Executor {
-    pub fn new(lang: Language, code: String, channel: ChannelId, user: UserId) -> Self {
+    pub fn new(lang: Language, code: String, temp_dir: PathBuf, channel: ChannelId, user: UserId) -> Self {
         Self {
             code,
             lang,
+            temp_dir,
             id: Id {
                 channel,
                 user
@@ -57,8 +59,8 @@ impl Executor {
     }
 
     pub async fn compile_and_run(self, timeout: Duration) -> Result<(String, String), (Option<String>, Error)> {
-        let code_path = PathBuf::from(Self::form_file_name(self.id.channel, self.id.user, self.lang.as_str()));
-        let exec_path = PathBuf::from(Self::form_file_name(self.id.channel, self.id.user, "o"));
+        let code_path = PathBuf::from(Self::form_file_name(&self.temp_dir, self.id.channel, self.id.user, self.lang.as_str()));
+        let exec_path = PathBuf::from(Self::form_file_name(&self.temp_dir, self.id.channel, self.id.user, "o"));
 
         let code = fs::OpenOptions::new()
             .read(true)
@@ -91,8 +93,10 @@ impl Executor {
         };
 
         // TODO: Rewrite
-        let _ = fs::remove_file(&code_path).await;
-        let _ = fs::remove_file(&exec_path).await;
+        let _ = tokio::join!(
+            fs::remove_file(&code_path),
+            fs::remove_file(&exec_path)
+        );
 
         info!("Cache files deleted");
 
@@ -142,8 +146,8 @@ impl Executor {
         }
     }
 
-    fn form_file_name(channel: ChannelId, user: UserId, format: &'static str) -> String {
-        format!("./{}-{}.{}", channel.as_u64(), user.as_u64(), format)
+    fn form_file_name(dir: &Path, channel: ChannelId, user: UserId, format: &'static str) -> String {
+        format!("{}/{}-{}.{}", dir.display().to_string(), channel.as_u64(), user.as_u64(), format)
     }
 }
 
