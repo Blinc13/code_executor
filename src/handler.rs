@@ -1,4 +1,9 @@
-use std::{mem, sync::Arc};
+use std::{
+    mem,
+    sync::Arc,
+    str::FromStr,
+    path::PathBuf
+};
 use serenity::{
     client::{
         Context,
@@ -9,7 +14,7 @@ use serenity::{
             command::Command,
             interaction::Interaction
         },
-        id::ChannelId,
+        id::{ChannelId, UserId},
         gateway::Ready
     },
     builder::CreateInteractionResponse,
@@ -20,25 +25,26 @@ use tracing::{error, info};
 
 #[derive(Debug)]
 pub struct EventHandler {
-    log_channel: Option<ChannelId>
-}
-
-impl EventHandler {
-    pub fn new(id: u64) -> Self {
-        Self {
-            log_channel: Some(ChannelId::from(id))
-        }
-    }
+    settings: Arc<utils::BotSettings>
 }
 
 impl HandlerFromEnv for EventHandler {
     fn from_env() -> Self {
-        let log_channel = std::env::var("LOG_CHANNEL").ok()
-            .and_then(| str | str.parse::<u64>().ok())
-            .map(| id | ChannelId::from(id));
-
         Self {
-            log_channel
+            settings: Arc::new(utils::BotSettings {
+                temp_file_dir: std::env::var("TEMP_FILE_PATH").ok()
+                    .map(| path | PathBuf::from(path))
+                    .unwrap_or_else(|| PathBuf::from(".")),
+                log_channel: std::env::var("LOG_CHANNEL").ok()
+                    .and_then(| str | ChannelId::from_str(&str).ok()),
+                owners: std::env::var("OWNERS").ok()
+                    .map(| owners |
+                        owners
+                            .split(",")
+                            .filter_map(| owner | UserId::from_str(owner).ok())
+                            .collect()
+                    ).unwrap_or_else(|| vec![])
+            })
         }
     }
 }
@@ -47,6 +53,7 @@ impl HandlerFromEnv for EventHandler {
 impl SEventHandler for EventHandler {
     async fn ready(&self, ctx: Context, data: Ready) {
         info!("Handler authorization complete: user {}, application {}", data.user.name, data.application.id);
+
 
         let res = Command::set_global_application_commands(&ctx.http, | builder |
             builder
@@ -59,15 +66,16 @@ impl SEventHandler for EventHandler {
             Ok(_) => info!("Command initialization successful")
         }
 
+        ctx.data.write().await.insert::<utils::BotSettings>(self.settings.clone());
 
-        if let Some(channel) = self.log_channel {
+        if let Some(channel) = self.settings.log_channel {
             info!("Log channel detected! Channel id: {channel}. Enabling logging");
 
-            if let Err(err) = channel.say(&ctx.http, "Bot initialized and ready to use!").await {
-                error!("Failed to send init log message! {err:?}");
-            }
-
             tokio::spawn(async move {
+                if let Err(err) = channel.say(&ctx.http, "Bot initialized and ready to use!").await {
+                    error!("Failed to send init log message! {err:?}");
+                }
+
                 loop {
                     tokio::time::sleep(tokio::time::Duration::from_secs(14400)).await;
 

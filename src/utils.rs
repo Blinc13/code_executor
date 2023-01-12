@@ -1,8 +1,18 @@
+use std::{path::PathBuf, sync::Arc};
 use serenity::{
     builder::CreateEmbed,
-    utils::MessageBuilder
+    utils::MessageBuilder,
+    model::id::{UserId, ChannelId}
 };
+use serenity::prelude::TypeMapKey;
 use tracing::info;
+
+#[derive(Debug)]
+pub struct BotSettings {
+    pub temp_file_dir: PathBuf,
+    pub owners: Vec<UserId>,
+    pub log_channel: Option<ChannelId>
+}
 
 pub fn build_system_load_embed(embed: &mut CreateEmbed) -> &mut CreateEmbed {
     info!("Collecting load info");
@@ -37,4 +47,8 @@ pub fn build_system_load_embed(embed: &mut CreateEmbed) -> &mut CreateEmbed {
                 .build(),
             true,
         )
+}
+
+impl TypeMapKey for BotSettings {
+    type Value = Arc<Self>;
 }
