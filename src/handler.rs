@@ -68,14 +68,16 @@ impl SEventHandler for EventHandler {
             }
 
             tokio::spawn(async move {
-                tokio::time::sleep(tokio::time::Duration::from_secs(14400)).await;
+                loop {
+                    tokio::time::sleep(tokio::time::Duration::from_secs(14400)).await;
 
-                let result = channel.send_message(&ctx.http, | builder |
-                    builder.embed(| builder | utils::build_system_load_embed(builder))
-                ).await;
+                    let result = channel.send_message(&ctx.http, |builder|
+                        builder.embed(|builder| utils::build_system_load_embed(builder))
+                    ).await;
 
-                if let Err(err) = result {
-                    error!("Failed to send log message! {err:?}");
+                    if let Err(err) = result {
+                        error!("Failed to send log message! {err:?}");
+                    }
                 }
             });
         }
