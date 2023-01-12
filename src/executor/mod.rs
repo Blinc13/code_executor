@@ -77,8 +77,8 @@ impl Executor {
 
                 let compile_result = match self.lang {
                     Language::Rust => Self::_compiler_invoke("rustc", &code_path, &exec_path),
-                    Language::Cpp => Self::_compiler_invoke("g++", &code_path, &exec_path),
-                    Language::C => Self::_compiler_invoke("gcc", &code_path, &exec_path)
+                    Language::Cpp => Self::_compiler_invoke("clang++", &code_path, &exec_path),
+                    Language::C => Self::_compiler_invoke("clang", &code_path, &exec_path)
                 }.await;
 
                 match compile_result {

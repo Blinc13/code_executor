@@ -1,5 +1,4 @@
-use std::mem;
-use std::sync::Arc;
+use std::{mem, sync::Arc};
 use serenity::{
     client::{
         Context,
@@ -13,10 +12,10 @@ use serenity::{
         id::ChannelId,
         gateway::Ready
     },
+    builder::CreateInteractionResponse,
     async_trait
 };
-use serenity::builder::CreateInteractionResponse;
-use crate::{HandlerFromEnv, commands};
+use crate::{HandlerFromEnv, commands, utils};
 use tracing::{error, info};
 
 #[derive(Debug)]
@@ -58,6 +57,21 @@ impl SEventHandler for EventHandler {
         match res {
             Err(err) => error!("Failed to register commands!: {err}"),
             Ok(_) => info!("Command initialization successful")
+        }
+
+
+        if let Some(channel) = self.log_channel {
+            info!("Log channel detected! Channel id: {channel}. Enabling logging");
+
+            let _ = channel.say(&ctx.http, "Bot initialized and ready to use!").await;
+
+            tokio::spawn(async move {
+                tokio::time::sleep(tokio::time::Duration::from_secs(14400)).await;
+
+                let _ = channel.send_message(&ctx.http, | builder |
+                    builder.embed(| builder | utils::build_system_load_embed(builder))
+                ).await;
+            });
         }
     }
 
