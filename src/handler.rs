@@ -63,14 +63,20 @@ impl SEventHandler for EventHandler {
         if let Some(channel) = self.log_channel {
             info!("Log channel detected! Channel id: {channel}. Enabling logging");
 
-            let _ = channel.say(&ctx.http, "Bot initialized and ready to use!").await;
+            if let Err(err) = channel.say(&ctx.http, "Bot initialized and ready to use!").await {
+                error!("Failed to send init log message! {err:?}");
+            }
 
             tokio::spawn(async move {
                 tokio::time::sleep(tokio::time::Duration::from_secs(14400)).await;
 
-                let _ = channel.send_message(&ctx.http, | builder |
+                let result = channel.send_message(&ctx.http, | builder |
                     builder.embed(| builder | utils::build_system_load_embed(builder))
                 ).await;
+
+                if let Err(err) = result {
+                    error!("Failed to send log message! {err:?}");
+                }
             });
         }
     }
