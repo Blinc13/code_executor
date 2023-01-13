@@ -1,7 +1,9 @@
 [package]
 name = "compile_bot"
+description = "Discord bot for run your code!"
 version = "0.1.0"
 edition = "2021"
+authors = ["Blin4ik <https://github.com/Blinc13>"]
 
 
 [profile.dev]
