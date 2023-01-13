@@ -1,3 +1,7 @@
+use std::{
+    sync::Arc,
+    str::FromStr
+};
 use serenity::{
     client::Context,
     builder::{
@@ -10,10 +14,11 @@ use serenity::{
     },
     utils::MessageBuilder
 };
-use std::str::FromStr;
-use std::sync::Arc;
+use crate::{
+    utils,
+    executor::{Executor, Error, Language}
+};
 use tracing::info;
-use crate::executor::{Executor, Error, Language};
 use super::generate_options_map;
 
 pub async fn command(ctx: Arc<Context>, int: &ApplicationCommandInteraction) -> CreateInteractionResponse {
@@ -25,7 +30,8 @@ pub async fn command(ctx: Arc<Context>, int: &ApplicationCommandInteraction) -> 
     let (channel, user) = (int.channel_id, int.user.id);
 
     tokio::spawn(async move {
-        let executor = Executor::new(lang, code, ".".parse().unwrap(), channel, user);
+        let temp_dir = ctx.data.read().await.get::<utils::BotSettings>().unwrap().temp_file_dir.to_owned();
+        let executor = Executor::new(lang, code, temp_dir, channel, user);
 
         let _ = match executor.compile_and_run(tokio::time::Duration::from_secs(10)).await {
             Ok((compile_out, exec_out)) => {
