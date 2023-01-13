@@ -2,8 +2,10 @@ pub mod run;
 pub mod system_load;
 
 use std::collections::HashMap;
-use serenity::json::Value;
-use serenity::model::prelude::interaction::application_command::CommandDataOption;
+use serenity::{
+    json::Value,
+    model::application::interaction::application_command::CommandDataOption
+};
 
 fn generate_options_map(options: &Vec<CommandDataOption>) -> HashMap<&str, Option<&Value>> {
     options.iter()

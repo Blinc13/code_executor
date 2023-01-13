@@ -44,7 +44,6 @@ pub struct Executor {
 }
 
 
-// TODO: Move some code to modules
 impl Executor {
     pub fn new(lang: Language, code: String, temp_dir: PathBuf, channel: ChannelId, user: UserId) -> Self {
         Self {
@@ -92,7 +91,6 @@ impl Executor {
             Err(_) => Err((None, Error::FsError))
         };
 
-        // TODO: Rewrite
         let _ = tokio::join!(
             fs::remove_file(&code_path),
             fs::remove_file(&exec_path)

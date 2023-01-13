@@ -1,10 +1,10 @@
 use std::{path::PathBuf, sync::Arc};
 use serenity::{
+    prelude::TypeMapKey,
     builder::CreateEmbed,
     utils::MessageBuilder,
     model::id::{UserId, ChannelId}
 };
-use serenity::prelude::TypeMapKey;
 use tracing::info;
 
 #[derive(Debug)]
